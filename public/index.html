@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Transcriptor en tiempo real</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg: #0b1220; --card:#0f172a; --muted:#94a3b8; --text:#e5e7eb;
+      --accent:#22c55e; --accent-2:#ef4444; --primary:#3b82f6;
+      --ring: rgba(59,130,246,0.35); --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+    *{box-sizing:border-box}
+    body{ margin:0; background: linear-gradient(120deg,#0b1220,#111827);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color: var(--text); min-height:100vh; display:flex; padding:24px;}
+    .wrap{width:100%; max-width:1280px; margin:auto;}
+    .top{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px;}
+    .brand{display:flex; align-items:center; gap:12px; font-weight:700; letter-spacing:.2px; font-size:18px;}
+    .brand .dot{width:12px; height:12px; border-radius:999px; background:linear-gradient(180deg,#60a5fa,#22c55e); box-shadow:0 0 20px rgba(96,165,250,.6);}
+    .grid{display:grid; grid-template-columns: 1.2fr .8fr; gap:16px;}
+    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
+
+    .card{background: rgba(15,23,42,.85); border:1px solid rgba(148,163,184,.15);
+      border-radius: var(--radius); box-shadow: var(--shadow); overflow:hidden;}
+    .toolbar{display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:16px;
+      border-bottom:1px solid rgba(148,163,184,.12);
+      background: radial-gradient(80% 120% at 10% -20%, rgba(59,130,246,.08), transparent 60%),
+                  radial-gradient(60% 100% at 110% 0%, rgba(34,197,94,.07), transparent 55%),
+                  rgba(2,6,23,.25); backdrop-filter: blur(8px);}
+    .group{ display:flex; gap:8px; align-items:center; }
+
+    button, select{
+      appearance:none; border:1px solid rgba(148,163,184,.2);
+      background:#0b1220; color:var(--text); padding:10px 14px; border-radius:12px;
+      font-weight:600; cursor:pointer; transition:.18s ease; outline:none;
+    }
+    button:hover{ transform: translateY(-1px); box-shadow:0 6px 20px rgba(0,0,0,.25); }
+    button:active{ transform: translateY(0); box-shadow:none; }
+    button:disabled{ opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+    .btn-primary{ background: linear-gradient(180deg,#60a5fa,#3b82f6); border-color: transparent; }
+    .btn-danger{ background: linear-gradient(180deg,#f87171,#ef4444); border-color: transparent; }
+    .btn-outline{ background:transparent; border-color:rgba(148,163,184,.35); }
+    .btn-ghost{ background: transparent; }
+
+    .status{ margin-left:auto; display:flex; align-items:center; gap:10px; font-weight:700;
+      padding:8px 12px; border-radius:999px; border:1px solid rgba(148,163,184,.2);
+      background: rgba(2,6,23,.35);}
+    .pill{ width:10px; height:10px; border-radius:999px; background:#94a3b8; box-shadow:0 0 0 0 rgba(0,0,0,0); transition:.2s ease; }
+    .running .pill{ background:var(--accent); box-shadow:0 0 0 6px rgba(34,197,94,.15); animation: pulse 1.4s infinite; }
+    .paused  .pill{ background:var(--accent-2); box-shadow:0 0 0 6px rgba(239,68,68,.15); }
+    .idle    .pill{ background:#94a3b8; }
+    @keyframes pulse{ 0%{ box-shadow:0 0 0 4px rgba(34,197,94,.30) } 70%{ box-shadow:0 0 0 10px rgba(34,197,94,0) } 100%{ box-shadow:0 0 0 4px rgba(34,197,94,0) } }
+
+    .content{ padding:16px; display:grid; gap:12px; }
+    textarea{
+      width:100%; height:360px; resize:vertical; border-radius:14px; padding:16px 14px;
+      background: rgba(2,6,23,.6); color:var(--text);
+      border:1px solid rgba(148,163,184,.18); outline:none; font-size:16px; line-height:1.5;
+      transition: box-shadow .15s ease, border-color .15s ease;
+    }
+    textarea:focus{ border-color: var(--primary); box-shadow: 0 0 0 4px var(--ring); }
+
+    .meta{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; color:#b6c2d6; font-size:14px;}
+    .badges{ display:flex; gap:8px; align-items:center; }
+    .badge{ border:1px solid rgba(148,163,184,.22); color:#cbd5e1; padding:6px 10px; border-radius:999px; background:rgba(2,6,23,.35); display:flex; align-items:center; gap:8px; font-weight:600;}
+
+    /* Panel estructurado */
+    .panel{ padding:16px; display:grid; gap:12px; }
+    .h{ font-size:14px; color:#cdd5e1; text-transform:uppercase; letter-spacing:.12em; }
+    .field{ display:grid; grid-template-columns: 140px 1fr; gap:8px; align-items:center; }
+    .key{ color:#93c5fd; font-weight:700; }
+    .val{ color:#e5e7eb; border:1px dashed rgba(148,163,184,.25); padding:8px 10px; border-radius:10px; min-height:36px; display:flex; align-items:center;}
+    .grid2{ display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; }
+    @media (max-width:680px){ .field{ grid-template-columns: 1fr; } .grid2{ grid-template-columns: 1fr; } }
+    .warn{display:none; padding:10px 12px; border-radius:12px; border:1px solid rgba(239,68,68,.35); background: rgba(239,68,68,.10); color:#fecaca; font-weight:600;}
+    .warn.show{display:block;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand"><span class="dot"></span> Transcriptor en tiempo real</div>
+      <div id="status" class="status idle"><span class="pill"></span><span class="label">Listo</span></div>
+    </div>
+
+    <div class="grid">
+      <!-- IZQUIERDA: transcripción -->
+      <div class="card">
+        <div class="toolbar">
+          <div class="group">
+            <button id="btnStart" class="btn-primary">🎙️ Iniciar</button>
+            <button id="btnStop"  class="btn-danger" disabled>⏹️ Finalizar</button>
+          </div>
+          <div class="group">
+            <select id="lang" title="Idioma">
+              <option value="es-PE" selected>Español (Perú)</option>
+              <option value="es-ES">Español (España)</option>
+              <option value="es-MX">Español (México)</option>
+            </select>
+          </div>
+          <div class="group" style="margin-left:auto;">
+            <button id="btnCopy" class="btn-outline" title="Copiar">📋 Copiar</button>
+            <button id="btnClear" class="btn-ghost"  title="Limpiar">🧹 Limpiar</button>
+          </div>
+        </div>
+        <div class="content">
+          <div id="warn" class="warn"></div>
+          <textarea id="output" placeholder="Aquí aparecerá el texto…"></textarea>
+          <div class="meta">
+            <div class="badges">
+              <div class="badge" id="wcount">🧾 0 palabras</div>
+              <div class="badge" id="timer">⏱️ 00:00</div>
+            </div>
+            <div class="badges">
+              <div class="badge">Di “pausar” / “continuar”</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DERECHA: Panel estructurado -->
+      <div class="card">
+        <div class="panel">
+          <div class="h">Datos y Signos Vitales</div>
+          <div class="grid2">
+            <div class="field"><div class="key">Edad</div>      <div class="val" id="f-edad"></div></div>
+            <div class="field"><div class="key">Sexo</div>      <div class="val" id="f-sexo"></div></div>
+            <div class="field"><div class="key">Peso (kg)</div> <div class="val" id="f-peso"></div></div>
+            <div class="field"><div class="key">Talla</div>     <div class="val" id="f-talla"></div></div>
+            <div class="field"><div class="key">TA (mmHg)</div> <div class="val" id="f-ta"></div></div>
+            <div class="field"><div class="key">FC (/min)</div> <div class="val" id="f-fc"></div></div>
+            <div class="field"><div class="key">FR (/min)</div> <div class="val" id="f-fr"></div></div>
+            <div class="field"><div class="key">Temp (°C)</div> <div class="val" id="f-temp"></div></div>
+            <div class="field"><div class="key">SatO₂ (%)</div> <div class="val" id="f-sat"></div></div>
+          </div>
+
+          <div class="h" style="margin-top:8px;">Escalas</div>
+          <div class="grid2">
+            <div class="field"><div class="key">Glasgow</div> <div class="val" id="f-glasgow"></div></div>
+            <div class="field"><div class="key">NIHSS</div>   <div class="val" id="f-nihss"></div></div>
+            <div class="field"><div class="key">Mini-Mental</div> <div class="val" id="f-mmse"></div></div>
+          </div>
+
+          <div class="h" style="margin-top:8px;">Examen Neurológico</div>
+          <div class="grid2">
+            <div class="field"><div class="key">Pupilas</div>     <div class="val" id="f-pupilas"></div></div>
+            <div class="field"><div class="key">Pares craneales</div><div class="val" id="f-pares"></div></div>
+            <div class="field"><div class="key">Fuerza</div>      <div class="val" id="f-fuerza"></div></div>
+            <div class="field"><div class="key">Tono/Reflejos</div><div class="val" id="f-tono"></div></div>
+            <div class="field"><div class="key">Sensibilidad</div><div class="val" id="f-sensi"></div></div>
+            <div class="field"><div class="key">Coordinación</div><div class="val" id="f-coord"></div></div>
+            <div class="field"><div class="key">Marcha</div>      <div class="val" id="f-marcha"></div></div>
+            <div class="field"><div class="key">Signos meníngeos</div><div class="val" id="f-mening"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // === Refs UI ===
+    const btnStart = document.getElementById('btnStart');
+    const btnStop  = document.getElementById('btnStop');
+    const btnCopy  = document.getElementById('btnCopy');
+    const btnClear = document.getElementById('btnClear');
+    const output   = document.getElementById('output');
+    const langSel  = document.getElementById('lang');
+    const statusEl = document.getElementById('status');
+    const warnEl   = document.getElementById('warn');
+    const wcountEl = document.getElementById('wcount');
+    const timerEl  = document.getElementById('timer');
+
+    // Campos estructurados
+    const F = {
+      edad:   document.getElementById('f-edad'),
+      sexo:   document.getElementById('f-sexo'),
+      peso:   document.getElementById('f-peso'),
+      talla:  document.getElementById('f-talla'),
+      ta:     document.getElementById('f-ta'),
+      fc:     document.getElementById('f-fc'),
+      fr:     document.getElementById('f-fr'),
+      temp:   document.getElementById('f-temp'),
+      sat:    document.getElementById('f-sat'),
+      glasgow:document.getElementById('f-glasgow'),
+      nihss:  document.getElementById('f-nihss'),
+      mmse:   document.getElementById('f-mmse'),
+      pupilas:document.getElementById('f-pupilas'),
+      pares:  document.getElementById('f-pares'),
+      fuerza: document.getElementById('f-fuerza'),
+      tono:   document.getElementById('f-tono'),
+      sensi:  document.getElementById('f-sensi'),
+      coord:  document.getElementById('f-coord'),
+      marcha: document.getElementById('f-marcha'),
+      mening: document.getElementById('f-mening'),
+    };
+
+    // === Estado ===
+    let audioCtx, micStream, workletNode, ws;
+    let pausedByCommand = false;
+    let committedWords = []; let lastInterimCount = 0;
+    let t0 = 0, tick = null;
+
+    // Solo usamos “pausar” (el “continuar” lo maneja el servidor)
+    const RE_PAUSAR = /(?:^|[\s,.!?])pausar(?:$|[\s,.!?])/i;
+
+    // === Helpers UI ===
+    function setStatus(label, klass){
+      statusEl.classList.remove('running','paused','idle');
+      statusEl.classList.add(klass);
+      statusEl.querySelector('.label').textContent = label;
+    }
+    function showWarn(msg){ warnEl.textContent = msg || ''; warnEl.classList.toggle('show', !!msg); }
+    function updateCount(){
+      const words = output.value.trim() ? output.value.trim().split(/\s+/).length : 0;
+      wcountEl.textContent = `🧾 ${words} ${words===1?'palabra':'palabras'}`;
+    }
+    function startTimer(){ t0 = Date.now(); tick && clearInterval(tick);
+      tick = setInterval(()=>{ const s = Math.floor((Date.now()-t0)/1000);
+        const mm = String(Math.floor(s/60)).padStart(2,'0'); const ss = String(s%60).padStart(2,'0');
+        timerEl.textContent = `⏱️ ${mm}:${ss}`; }, 1000); }
+    function stopTimer(){ tick && clearInterval(tick); tick=null; }
+
+    // === EXTRACCIÓN ESTRUCTURADA ===
+    function updateStructured(text){
+      const t = ' ' + text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') + ' ';
+
+      // Edad: "xx años"
+      const mEdad = t.match(/(?:edad\s*[:\-]?\s*)?(\d{1,3})\s*a(?:n|ñ)os/);
+      F.edad.textContent = mEdad ? mEdad[1] + ' años' : '';
+
+      // Sexo
+      const mSexo = t.match(/\b(sexo\s*[:\-]?\s*)?(masculino|femenino|mujer|varon|hombre)\b/);
+      F.sexo.textContent = mSexo ? (mSexo[2]==='femenino' || mSexo[2]==='mujer' ? 'Femenino' : 'Masculino') : '';
+
+      // Peso: "xx kg"
+      const mPeso = t.match(/(\d{2,3}(?:[.,]\d+)?)\s*kg\b/);
+      F.peso.textContent = mPeso ? mPeso[1].replace(',','.') : '';
+
+      // Talla: "1.60 m" o "160 cm"
+      const mTallaM = t.match(/\b(1\.\d{2})\s*m\b/);
+      const mTallaCm= t.match(/\b(1\d{2}|[5-9]\d)\s*cm\b/); // 150–199 cm aprox
+      F.talla.textContent = mTallaM ? (mTallaM[1]+' m') : (mTallaCm ? (mTallaCm[1]+' cm') : '');
+
+      // TA: "120/80 mmHg" (mmhg opcional)
+      const mTA = t.match(/\b(\d{2,3})\s*\/\s*(\d{2,3})\s*(?:mmhg)?\b/);
+      F.ta.textContent = mTA ? `${mTA[1]}/${mTA[2]}` : '';
+
+      // FC: "fc 80", "frecuencia cardiaca 80"
+      const mFC = t.match(/\b(?:fc|frecuencia\s*cardiac[ae])\s*[:\-]?\s*(\d{2,3})\b/);
+      F.fc.textContent = mFC ? mFC[1] : '';
+
+      // FR: "fr 18", "frecuencia respiratoria 18"
+      const mFR = t.match(/\b(?:fr|frecuencia\s*respiratoria)\s*[:\-]?\s*(\d{1,2})\b/);
+      F.fr.textContent = mFR ? mFR[1] : '';
+
+      // Temp: "36.5 °c"
+      const mTemp = t.match(/\b(3[0-9](?:[.,]\d+)?)\s*°?\s*c\b/);
+      F.temp.textContent = mTemp ? mTemp[1].replace(',','.') : '';
+
+      // Saturación: "sat 96%", "saturacion 96%"
+      const mSat = t.match(/\b(?:sat(?:uracion)?|spo2)\s*[:\-]?\s*(\d{2,3})\s*%/);
+      F.sat.textContent = mSat ? mSat[1] + '%' : '';
+
+      // Escalas
+      const mG = t.match(/\bglasgow\s*[:\-]?\s*(\d{1,2})\b/);
+      F.glasgow.textContent = mG ? mG[1] : '';
+      const mN = t.match(/\bnihss\s*[:\-]?\s*(\d{1,2})\b/);
+      F.nihss.textContent = mN ? mN[1] : '';
+      const mMMSE = t.match(/\b(?:mini\s*mental|mmse)\s*[:\-]?\s*(\d{1,2})\b/);
+      F.mmse.textContent = mMMSE ? mMMSE[1] : '';
+
+      // Examen neurológico (capturamos frases comunes si aparecen)
+      const cap = (re)=>{ const m = t.match(re); return m ? (m[1] || m[0]).trim() : ''; };
+
+      F.pupilas.textContent = cap(/\bpupilas?\s*(isocoricas|isocoricas y reactivas|anisocoricas|reactivas|no reactivas)[\w\s]*/);
+      F.pares.textContent   = cap(/\bpares?\s*craneales?\s*[:\-]?\s*([a-z0-9\s,\.]+?)(?=\b(fuerza|tono|reflejos|sensibilidad|coordinacion|marcha|signos)|$)/);
+      F.fuerza.textContent  = cap(/\bfuerza\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(tono|reflejos|sensibilidad|coordinacion|marcha|signos)|$)/);
+      F.tono.textContent    = cap(/\b(?:tono|reflejos)\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(fuerza|sensibilidad|coordinacion|marcha|signos)|$)/);
+      F.sensi.textContent   = cap(/\bsensibilidad\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(tono|reflejos|coordinacion|marcha|signos)|$)/);
+      F.coord.textContent   = cap(/\bcoordinacion\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(marcha|signos)|$)/);
+      F.marcha.textContent  = cap(/\bmarcha\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(signos)|$)/);
+      F.mening.textContent  = cap(/\b(signos?\s*mening(e|ea)os?)\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+)?/);
+    }
+
+    // === Audio ===
+    async function initAudio() {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      await audioCtx.audioWorklet.addModule('./audio-worklet.js');
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount:1, sampleRate:16000, echoCancellation:false, noiseSuppression:false, autoGainControl:false }
+      });
+      const source = audioCtx.createMediaStreamSource(micStream);
+      workletNode = new AudioWorkletNode(audioCtx, 'pcm16-worklet');
+      workletNode.port.onmessage = (ev) => {
+        if (ev.data.type === 'pcm16' && ws && ws.readyState === WebSocket.OPEN) { ws.send(ev.data.chunk); }
+      };
+      source.connect(workletNode);
+    }
+
+    // === WebSocket ===
+    function openWS() {
+      return new Promise((resolve, reject) => {
+        ws = new WebSocket(`ws://${location.host}/stream`);
+        ws.binaryType = 'arraybuffer';
+        ws.onopen = resolve; ws.onerror = reject;
+
+        ws.onmessage = (ev) => {
+          let data; try { data = JSON.parse(ev.data); } catch { return; }
+
+          if (data.type === 'status') {
+            if (data.message === 'paused_by_command'){ setStatus('Pausado por voz','paused'); pausedByCommand = true; }
+            if (data.message === 'resumed_by_command' || data.message === 'streaming_started'){
+              setStatus('Grabando…','running'); pausedByCommand = false; lastInterimCount = 0;
+            }
+            if (data.message === 'streaming_stopped'){ setStatus('Finalizado','idle'); }
+            return;
+          }
+          if (data.type === 'error'){ showWarn('Error de Google STT: ' + (data.message || '')); return; }
+          if (data.type !== 'transcript') return;
+
+          showWarn('');
+          const text = (data.transcript || '').trim();
+          if (!text) return;
+
+          const lower = text.toLowerCase();
+          // Comando local “pausar”: avisamos al servidor y no escribimos
+          if (RE_PAUSAR.test(lower)) {
+            if (!pausedByCommand) { pausedByCommand = true; ws.send(JSON.stringify({ type:'pause_by_command' })); setStatus('Pausado por voz','paused'); }
+            lastInterimCount = 0; return;
+          }
+          // Si está pausado, no agregar texto (el server escucha "continuar")
+          if (pausedByCommand) return;
+
+          // Palabra por palabra (solo crecimiento)
+          const words = text.split(/\s+/);
+          if (!data.isFinal) {
+            if (words.length > lastInterimCount) {
+              const newOnes = words.slice(lastInterimCount);
+              committedWords.push(...newOnes);
+              lastInterimCount = words.length;
+              output.value = committedWords.join(' ');
+              output.scrollTop = output.scrollHeight; updateCount(); updateStructured(output.value);
+            }
+          } else {
+            if (words.length > lastInterimCount) {
+              const newOnes = words.slice(lastInterimCount);
+              committedWords.push(...newOnes);
+            }
+            lastInterimCount = 0;
+            output.value = committedWords.join(' ');
+            output.scrollTop = output.scrollHeight; updateCount(); updateStructured(output.value);
+          }
+        };
+      });
+    }
+
+    // === Acciones ===
+    btnStart.onclick = async () => {
+      btnStart.disabled = true; btnStop.disabled = false;
+      committedWords = []; lastInterimCount = 0; output.value = '';
+      updateCount(); showWarn(''); setStatus('Grabando…','running'); pausedByCommand = false;
+      startTimer();
+      try {
+        await initAudio(); await openWS();
+        ws.send(JSON.stringify({ type:'start', languageCode: langSel.value, sampleRateHertz: 16000 }));
+      } catch (e) {
+        alert('No se pudo iniciar: ' + (e?.message || e));
+        btnStart.disabled = false; btnStop.disabled = true; setStatus('Listo','idle'); stopTimer();
+      }
+    };
+
+    btnStop.onclick = () => {
+      if (ws && ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify({ type:'stop' })); ws.close(); }
+      if (audioCtx) audioCtx.close();
+      btnStart.disabled = false; btnStop.disabled = true; setStatus('Finalizado','idle'); stopTimer();
+    };
+
+    btnCopy.onclick = async () => {
+      try { await navigator.clipboard.writeText(output.value || ''); btnCopy.textContent = '✅ Copiado'; }
+      catch{ btnCopy.textContent = '❌ Error'; }
+      setTimeout(()=> btnCopy.textContent = '📋 Copiar', 900);
+    };
+    btnClear.onclick = () => { committedWords = []; lastInterimCount = 0; output.value = ''; updateCount(); updateStructured(''); };
+
+    output.addEventListener('input', ()=>{ updateCount(); updateStructured(output.value); });
+  </script>
+</body>
+</html>
