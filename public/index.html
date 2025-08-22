@@ -69,9 +69,9 @@
     /* Panel estructurado */
     .panel{ padding:16px; display:grid; gap:12px; }
     .h{ font-size:14px; color:#cdd5e1; text-transform:uppercase; letter-spacing:.12em; }
-    .field{ display:grid; grid-template-columns: 140px 1fr; gap:8px; align-items:center; }
+    .field{ display:grid; grid-template-columns: 160px 1fr; gap:8px; align-items:center; }
     .key{ color:#93c5fd; font-weight:700; }
-    .val{ color:#e5e7eb; border:1px dashed rgba(148,163,184,.25); padding:8px 10px; border-radius:10px; min-height:36px; display:flex; align-items:center;}
+    .val{ color:#e5e7eb; border:1px dashed rgba(148,163,184,.25); padding:8px 10px; border-radius:10px; min-height:36px; display:flex; align-items:center; flex-wrap:wrap;}
     .grid2{ display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; }
     @media (max-width:680px){ .field{ grid-template-columns: 1fr; } .grid2{ grid-template-columns: 1fr; } }
     .warn{display:none; padding:10px 12px; border-radius:12px; border:1px solid rgba(239,68,68,.35); background: rgba(239,68,68,.10); color:#fecaca; font-weight:600;}
@@ -136,18 +136,32 @@
             <div class="field"><div class="key">SatO₂ (%)</div> <div class="val" id="f-sat"></div></div>
           </div>
 
-          <div class="h" style="margin-top:8px;">Escalas</div>
+          <!-- Sección reemplazada: Musculatura clave -->
+          <div class="h" style="margin-top:8px;">Fuerza por grupos musculares</div>
+
+          <div class="h" style="opacity:.8">Miembro superior</div>
           <div class="grid2">
-            <div class="field"><div class="key">Glasgow</div> <div class="val" id="f-glasgow"></div></div>
-            <div class="field"><div class="key">NIHSS</div>   <div class="val" id="f-nihss"></div></div>
-            <div class="field"><div class="key">Mini-Mental</div> <div class="val" id="f-mmse"></div></div>
+            <div class="field"><div class="key">Deltoides</div>            <div class="val" id="ms-deltoides"></div></div>
+            <div class="field"><div class="key">Bíceps</div>               <div class="val" id="ms-biceps"></div></div>
+            <div class="field"><div class="key">Tríceps</div>              <div class="val" id="ms-triceps"></div></div>
+            <div class="field"><div class="key">Extensores de muñeca</div> <div class="val" id="ms-ext-muneca"></div></div>
+            <div class="field"><div class="key">Interóseos</div>           <div class="val" id="ms-interoseos"></div></div>
           </div>
 
+          <div class="h" style="margin-top:8px; opacity:.8">Miembro inferior</div>
+          <div class="grid2">
+            <div class="field"><div class="key">Psoas/Iliopsoas</div>      <div class="val" id="mi-psoas"></div></div>
+            <div class="field"><div class="key">Cuádriceps</div>           <div class="val" id="mi-cuadriceps"></div></div>
+            <div class="field"><div class="key">Tibial anterior</div>      <div class="val" id="mi-tibial-ant"></div></div>
+            <div class="field"><div class="key">Gastrocnemio-Sóleo</div>   <div class="val" id="mi-gemelos"></div></div>
+            <div class="field"><div class="key">Extensor del hallux</div>  <div class="val" id="mi-ext-hallux"></div></div>
+          </div>
+
+          <!-- Se mantiene la sección de Examen neurológico general por si la usas -->
           <div class="h" style="margin-top:8px;">Examen Neurológico</div>
           <div class="grid2">
             <div class="field"><div class="key">Pupilas</div>     <div class="val" id="f-pupilas"></div></div>
             <div class="field"><div class="key">Pares craneales</div><div class="val" id="f-pares"></div></div>
-            <div class="field"><div class="key">Fuerza</div>      <div class="val" id="f-fuerza"></div></div>
             <div class="field"><div class="key">Tono/Reflejos</div><div class="val" id="f-tono"></div></div>
             <div class="field"><div class="key">Sensibilidad</div><div class="val" id="f-sensi"></div></div>
             <div class="field"><div class="key">Coordinación</div><div class="val" id="f-coord"></div></div>
@@ -183,17 +197,29 @@
       fr:     document.getElementById('f-fr'),
       temp:   document.getElementById('f-temp'),
       sat:    document.getElementById('f-sat'),
-      glasgow:document.getElementById('f-glasgow'),
-      nihss:  document.getElementById('f-nihss'),
-      mmse:   document.getElementById('f-mmse'),
+
+      // Examen general
       pupilas:document.getElementById('f-pupilas'),
       pares:  document.getElementById('f-pares'),
-      fuerza: document.getElementById('f-fuerza'),
       tono:   document.getElementById('f-tono'),
       sensi:  document.getElementById('f-sensi'),
       coord:  document.getElementById('f-coord'),
       marcha: document.getElementById('f-marcha'),
       mening: document.getElementById('f-mening'),
+
+      // Miembro superior
+      ms_deltoides:   document.getElementById('ms-deltoides'),
+      ms_biceps:      document.getElementById('ms-biceps'),
+      ms_triceps:     document.getElementById('ms-triceps'),
+      ms_ext_muneca:  document.getElementById('ms-ext-muneca'),
+      ms_interoseos:  document.getElementById('ms-interoseos'),
+
+      // Miembro inferior
+      mi_psoas:       document.getElementById('mi-psoas'),
+      mi_cuadriceps:  document.getElementById('mi-cuadriceps'),
+      mi_tibial_ant:  document.getElementById('mi-tibial-ant'),
+      mi_gemelos:     document.getElementById('mi-gemelos'),
+      mi_ext_hallux:  document.getElementById('mi-ext-hallux'),
     };
 
     // === Estado ===
@@ -202,7 +228,6 @@
     let committedWords = []; let lastInterimCount = 0;
     let t0 = 0, tick = null;
 
-    // Solo usamos “pausar” (el “continuar” lo maneja el servidor)
     const RE_PAUSAR = /(?:^|[\s,.!?])pausar(?:$|[\s,.!?])/i;
 
     // === Helpers UI ===
@@ -222,11 +247,14 @@
         timerEl.textContent = `⏱️ ${mm}:${ss}`; }, 1000); }
     function stopTimer(){ tick && clearInterval(tick); tick=null; }
 
+    // Normalización básica (quita acentos)
+    const norm = s => (' ' + s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') + ' ');
+
     // === EXTRACCIÓN ESTRUCTURADA ===
     function updateStructured(text){
-      const t = ' ' + text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') + ' ';
+      const t = norm(text);
 
-      // Edad: "xx años"
+      // Edad
       const mEdad = t.match(/(?:edad\s*[:\-]?\s*)?(\d{1,3})\s*a(?:n|ñ)os/);
       F.edad.textContent = mEdad ? mEdad[1] + ' años' : '';
 
@@ -234,57 +262,83 @@
       const mSexo = t.match(/\b(sexo\s*[:\-]?\s*)?(masculino|femenino|mujer|varon|hombre)\b/);
       F.sexo.textContent = mSexo ? (mSexo[2]==='femenino' || mSexo[2]==='mujer' ? 'Femenino' : 'Masculino') : '';
 
-      // Peso: "xx kg"
+      // Peso
       const mPeso = t.match(/(\d{2,3}(?:[.,]\d+)?)\s*kg\b/);
       F.peso.textContent = mPeso ? mPeso[1].replace(',','.') : '';
 
-      // Talla: "1.60 m" o "160 cm"
+      // Talla
       const mTallaM = t.match(/\b(1\.\d{2})\s*m\b/);
-      const mTallaCm= t.match(/\b(1\d{2}|[5-9]\d)\s*cm\b/); // 150–199 cm aprox
+      const mTallaCm= t.match(/\b(1\d{2}|[5-9]\d)\s*cm\b/);
       F.talla.textContent = mTallaM ? (mTallaM[1]+' m') : (mTallaCm ? (mTallaCm[1]+' cm') : '');
 
-      // TA: "120/80 mmHg" (mmhg opcional)
+      // TA
       const mTA = t.match(/\b(\d{2,3})\s*\/\s*(\d{2,3})\s*(?:mmhg)?\b/);
       F.ta.textContent = mTA ? `${mTA[1]}/${mTA[2]}` : '';
 
-      // FC: "fc 80", "frecuencia cardiaca 80"
+      // FC / FR / Temp / SatO2
       const mFC = t.match(/\b(?:fc|frecuencia\s*cardiac[ae])\s*[:\-]?\s*(\d{2,3})\b/);
       F.fc.textContent = mFC ? mFC[1] : '';
-
-      // FR: "fr 18", "frecuencia respiratoria 18"
       const mFR = t.match(/\b(?:fr|frecuencia\s*respiratoria)\s*[:\-]?\s*(\d{1,2})\b/);
       F.fr.textContent = mFR ? mFR[1] : '';
-
-      // Temp: "36.5 °c"
       const mTemp = t.match(/\b(3[0-9](?:[.,]\d+)?)\s*°?\s*c\b/);
       F.temp.textContent = mTemp ? mTemp[1].replace(',','.') : '';
-
-      // Saturación: "sat 96%", "saturacion 96%"
       const mSat = t.match(/\b(?:sat(?:uracion)?|spo2)\s*[:\-]?\s*(\d{2,3})\s*%/);
       F.sat.textContent = mSat ? mSat[1] + '%' : '';
 
-      // Escalas
-      const mG = t.match(/\bglasgow\s*[:\-]?\s*(\d{1,2})\b/);
-      F.glasgow.textContent = mG ? mG[1] : '';
-      const mN = t.match(/\bnihss\s*[:\-]?\s*(\d{1,2})\b/);
-      F.nihss.textContent = mN ? mN[1] : '';
-      const mMMSE = t.match(/\b(?:mini\s*mental|mmse)\s*[:\-]?\s*(\d{1,2})\b/);
-      F.mmse.textContent = mMMSE ? mMMSE[1] : '';
-
-      // Examen neurológico (capturamos frases comunes si aparecen)
+      // Examen general (resumen libre por si quieres seguir usándolo)
       const cap = (re)=>{ const m = t.match(re); return m ? (m[1] || m[0]).trim() : ''; };
-
       F.pupilas.textContent = cap(/\bpupilas?\s*(isocoricas|isocoricas y reactivas|anisocoricas|reactivas|no reactivas)[\w\s]*/);
-      F.pares.textContent   = cap(/\bpares?\s*craneales?\s*[:\-]?\s*([a-z0-9\s,\.]+?)(?=\b(fuerza|tono|reflejos|sensibilidad|coordinacion|marcha|signos)|$)/);
-      F.fuerza.textContent  = cap(/\bfuerza\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(tono|reflejos|sensibilidad|coordinacion|marcha|signos)|$)/);
-      F.tono.textContent    = cap(/\b(?:tono|reflejos)\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(fuerza|sensibilidad|coordinacion|marcha|signos)|$)/);
-      F.sensi.textContent   = cap(/\bsensibilidad\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(tono|reflejos|coordinacion|marcha|signos)|$)/);
+      F.pares.textContent   = cap(/\bpares?\s*craneales?\s*[:\-]?\s*([a-z0-9\s,\.]+?)(?=\b(tono|reflejos|sensibilidad|coordinacion|marcha|signos)|$)/);
+      F.tono.textContent    = cap(/\b(?:tono|reflejos)\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(sensibilidad|coordinacion|marcha|signos)|$)/);
+      F.sensi.textContent   = cap(/\bsensibilidad\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(coordinacion|marcha|signos)|$)/);
       F.coord.textContent   = cap(/\bcoordinacion\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(marcha|signos)|$)/);
       F.marcha.textContent  = cap(/\bmarcha\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+?)(?=\b(signos)|$)/);
       F.mening.textContent  = cap(/\b(signos?\s*mening(e|ea)os?)\s*[:\-]?\s*([a-z0-9\+\-\s\/\,\.]+)?/);
+
+      // -------- Fuerza por grupos musculares (MRC 0–5 con +/- y /5) --------
+      // Helper para mapear palabras “cuatro más” → “4+”
+      const textNumMap = {
+        'cero':'0','uno':'1','dos':'2','tres':'3','cuatro':'4','cinco':'5',
+        '0':'0','1':'1','2':'2','3':'3','4':'4','5':'5'
+      };
+      function normMRC(seg){
+        if(!seg) return '';
+        seg = seg.trim();
+        // Formatos: "4/5", "4+", "4-", "5"
+        const m = seg.match(/([0-5])\s*(?:\/\s*5)?\s*([+\-])?/);
+        if (m) return m[1] + (m[2] || '');
+        // Palabras: "cuatro mas", "tres menos"
+        const m2 = seg.match(/\b(cero|uno|dos|tres|cuatro|cinco)\b\s*(mas|\+|menos|\-)?/);
+        if (m2){ return (textNumMap[m2[1]] || '') + (m2[2] && (m2[2]==='mas' ? '+' : (m2[2]==='menos' ? '-' : m2[2])) || ''); }
+        return '';
+      }
+      function muscleRegex(nameVariants){
+        // Busca: "<nombre> ... <fuerza>"
+        // fuerza = 0-5 con +/-, o "/5"
+        const name = nameVariants.map(v => v.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|');
+        return new RegExp(`\\b(?:${name})\\b[^\\d\\w]{0,10}((?:[0-5]\\s*(?:\\/\\s*5)?\\s*[+\\-]?|cero|uno|dos|tres|cuatro|cinco)(?:\\s*(?:mas|menos|[+\\-]))?)`);
+      }
+      function setMuscle(el, variants){
+        const m = t.match(muscleRegex(variants));
+        el.textContent = m ? normMRC(m[1]) : '';
+      }
+
+      // Miembro superior
+      setMuscle(F.ms_deltoides,  ['deltoides']);
+      setMuscle(F.ms_biceps,     ['biceps','bíceps']);
+      setMuscle(F.ms_triceps,    ['triceps','tríceps']);
+      setMuscle(F.ms_ext_muneca, ['extensores de muneca','extensores de muñeca','extensor de muneca','extensor de muñeca']);
+      setMuscle(F.ms_interoseos, ['interoseos','interóseos','interoseos dorsales','interóseos dorsales']);
+
+      // Miembro inferior
+      setMuscle(F.mi_psoas,      ['psoas','iliopsoas']);
+      setMuscle(F.mi_cuadriceps, ['cuadriceps','cuádriceps']);
+      setMuscle(F.mi_tibial_ant, ['tibial anterior']);
+      setMuscle(F.mi_gemelos,    ['gemelos','gastrocnemio','soleo','sóleo','triceps sural','tríceps sural']);
+      setMuscle(F.mi_ext_hallux, ['extensor del hallux','extensor propio del hallux','extensor del dedo gordo']);
     }
 
-    // === Audio ===
+    // === Audio (igual que tenías) ===
     async function initAudio() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
       await audioCtx.audioWorklet.addModule('./audio-worklet.js');
@@ -299,7 +353,7 @@
       source.connect(workletNode);
     }
 
-    // === WebSocket ===
+    // === WebSocket (igual) ===
     function openWS() {
       return new Promise((resolve, reject) => {
         ws = new WebSocket(`ws://${location.host}/stream`);
@@ -325,15 +379,12 @@
           if (!text) return;
 
           const lower = text.toLowerCase();
-          // Comando local “pausar”: avisamos al servidor y no escribimos
           if (RE_PAUSAR.test(lower)) {
             if (!pausedByCommand) { pausedByCommand = true; ws.send(JSON.stringify({ type:'pause_by_command' })); setStatus('Pausado por voz','paused'); }
             lastInterimCount = 0; return;
           }
-          // Si está pausado, no agregar texto (el server escucha "continuar")
           if (pausedByCommand) return;
 
-          // Palabra por palabra (solo crecimiento)
           const words = text.split(/\s+/);
           if (!data.isFinal) {
             if (words.length > lastInterimCount) {
