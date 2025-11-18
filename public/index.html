@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>TESA — Transcriptor en tiempo real</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#17c9c9; --bg2:#13b6b6; --card:#0f172aee; --text:#e6f6f7;
+      --muted:#9cc8d1; --blue:#2b7bd6; --red:#e74b3b;
+      --shadow:0 8px 28px rgba(0,0,0,.35); --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100vh; padding:24px; display:flex; flex-direction:column; align-items:center;
+      background:linear-gradient(120deg,var(--bg),var(--bg2)); color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+    }
+    header{
+      width:100%; max-width:1400px; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
+    }
+    header img{ height:56px; object-fit:contain }
+    h1{ margin:0; font-size:22px; font-weight:900; text-align:center }
+    #status{ margin:6px 0 16px; padding:6px 10px; border-radius:8px; font-weight:700; }
+    .status-ready    { background:rgba(255,255,255,0.25); }  /* antes .08 */
+    .status-recording{ background:rgba(43,123,214,0.6); }    /* antes .25 */
+    .status-paused   { background:rgba(231,75,59,0.6); }     /* antes .25 */
+
+    .wrap{ width:100%; max-width:1400px; display:flex; gap:24px }
+    .left,.right{ flex:1 }
+    .card{ background:var(--card); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow) }
+
+    button{
+      border:none; border-radius:10px; padding:10px 16px; margin:4px 8px 12px 0; font-weight:700; color:#fff; cursor:pointer;
+      transition:transform .15s;
+    }
+    button:hover{ transform:scale(1.04) }
+    .btn-blue{ background:var(--blue) }
+    .btn-red{ background:var(--red) }
+
+    textarea{
+      width:100%; height:300px; border:none; border-radius:12px; padding:12px;
+      background:rgba(255,255,255,.1); color:#fff; resize:none; font-size:15px;
+    }
+    .counters{ display:flex; justify-content:space-between; color:var(--muted); font-size:13px; margin-top:6px }
+
+    section h3{ margin-top:12px; color:#cfeff4; border-bottom:1px solid rgba(255,255,255,.2); padding-bottom:4px }
+    .fields-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px }
+    .field{ display:flex; flex-direction:column; gap:4px }
+    label{ font-size:14px; color:var(--muted) }
+    input{
+      padding:6px 10px; border:none; outline:none; border-radius:8px; background:rgba(255,255,255,.1); color:#fff;
+    }
+
+    #toast{
+      position:fixed; left:50%; transform:translateX(-50%);
+      bottom:12px; background:#000a; color:#fff; padding:8px 12px; border-radius:10px;
+      font-size:13px; display:none;
+    }
+    #toast.show{ display:block }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <img src="logo_tesa.png" alt="TESA Logo">
+    <h1 style="color:#020220;">Transcripción Estructurada para el Soporte Asistencial</h1>
+    <img src="logo_instituto.png" alt="Instituto Logo">
+  </header>
+
+  <div id="status" class="status-ready">Listo</div>
+
+  <div class="wrap">
+    <div class="left card">
+      <div>
+        <button id="btnStart" class="btn-blue">Iniciar</button>
+        <button id="btnStop" class="btn-red" disabled>Finalizar</button>
+      </div>
+
+      <textarea id="output" placeholder="Aquí aparecerá la transcripción..."></textarea>
+      <div class="counters">
+        <span id="wordCount">0 palabras</span>
+        <span id="timeCount">00:00</span>
+      </div>
+    </div>
+
+    <div class="right card">
+      <section>
+        <h3>Datos y Signos Vitales</h3>
+        <div class="fields-grid">
+          <div class="field"><label>Edad</label><input id="f-edad"></div>
+          <div class="field"><label>Sexo</label><input id="f-sexo"></div>
+          <div class="field"><label>Peso (kg)</label><input id="f-peso"></div>
+          <div class="field"><label>Talla (cm)</label><input id="f-talla"></div>
+          <div class="field"><label>TA (mmHg)</label><input id="f-ta"></div>
+          <div class="field"><label>FR (/min)</label><input id="f-fr"></div>
+          <div class="field"><label>FC (/min)</label><input id="f-fc"></div>
+          <div class="field"><label>Temp (°C)</label><input id="f-temp"></div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Fuerza por Grupos Musculares</h3>
+        <div class="fields-grid">
+    
+          <div class="field"><label>Bíceps</label><input id="ms-biceps"></div>
+          <div class="field"><label>Tríceps</label><input id="ms-triceps"></div>
+          <div class="field"><label>Cuádriceps</label><input id="mi-cuadriceps"></div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Neurológico</h3>
+        <div class="fields-grid">
+          <div class="field"><label>Pares craneales</label><input id="f-pares"></div>
+          <div class="field"><label>Sensibilidad</label><input id="f-sensi"></div>
+          <div class="field"><label>Coordinación</label><input id="f-coord"></div>
+          <div class="field"><label>Marcha</label><input id="f-marcha"></div>
+          <div class="field"><label>Signos meníngeos</label><input id="f-mening"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script>
+    // conexión dinámica al backend
+    // Backend dinámico: usa http: si la página estuviera en https para evitar contenido mixto
+    const proto = (location.protocol === 'https:') ? 'http:' : location.protocol;
+    const URL_BACKEND = `${proto}//${location.hostname || '127.0.0.1'}:5000/analyze`;
+
+    const statusEl = document.getElementById("status");
+    const outputEl = document.getElementById("output");
+    const btnStart = document.getElementById("btnStart");
+    const btnStop = document.getElementById("btnStop");
+    const wordCountEl = document.getElementById("wordCount");
+    const timeCountEl = document.getElementById("timeCount");
+    const toast = document.getElementById('toast');
+
+    const F = Object.fromEntries(
+      [...document.querySelectorAll("input[id^='f-'],input[id^='ms-'],input[id^='mi-']")]
+      .map(e => [e.id.replace(/^(?:f-|ms-|mi-)/,""), e])
+    );
+
+    const bestScore = {};
+    let recognition, recognizing=false, paused=false, transcript="";
+    let startTime=null, analyzeTimer=null;
+
+    function showToast(msg, ms=2000){
+      toast.textContent = msg;
+      toast.className = 'show';
+      setTimeout(()=> toast.className='', ms);
+    }
+
+    function setStatus(txt, cls){ statusEl.textContent = txt; statusEl.className = cls; }
+
+    function updateCounters(){
+      const words = outputEl.value.trim().split(/\s+/).filter(Boolean).length;
+      wordCountEl.textContent = words + " palabras";
+      if(recognizing && startTime){
+        const diff = Math.floor((Date.now() - startTime)/1000);
+        const m = String(Math.floor(diff/60)).padStart(2,"0");
+        const s = String(diff%60).padStart(2,"0");
+        timeCountEl.textContent = m + ":" + s;
+      }
+    }
+    setInterval(updateCounters, 500);
+
+    function scheduleAnalyzeAll(){
+      clearTimeout(analyzeTimer);
+      analyzeTimer = setTimeout(()=> analyze(outputEl.value), 400);
+    }
+
+    async function analyze(text){
+      if(!text.trim()) return;
+      try{
+        const res = await fetch(URL_BACKEND, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body:JSON.stringify({ text })
+        });
+        if(!res.ok){
+          showToast("No se pudo conectar con el backend");
+          return;
+        }
+        const data = await res.json();
+        if(!data.results) return;
+        console.log("📦 Backend:", data.results);
+        data.results.forEach(r=>{
+          const key=r.field, val=r.value, sc=Number(r.score||0);
+          const el=F[key];
+          if(!el||!val) return;
+          if(bestScore[key]===undefined||sc>=bestScore[key]){
+            el.value=val; bestScore[key]=sc; el.title=`Confianza ${(sc*100).toFixed(1)}%`;
+          }
+        });
+      }catch(e){
+        console.error("Error:", e);
+        showToast("Error al conectar con Flask");
+      }
+    }
+
+    function init(){
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if(!SR){ alert("Tu navegador no soporta reconocimiento de voz."); return; }
+      recognition=new SR();
+      recognition.lang="es-PE";
+      recognition.continuous=true;
+      recognition.interimResults=true;
+
+      recognition.onresult=async e=>{
+        let temp="";
+        for(let i=e.resultIndex;i<e.results.length;i++){
+          const r=e.results[i], raw=r[0].transcript.trim(), txt=raw.toLowerCase();
+          if(/\b(detener|pausar)\b/.test(txt)){ paused=true; setStatus("Pausado","status-paused"); continue; }
+          if(/\b(continuar|reanudar|seguir)\b/.test(txt)){ paused=false; setStatus("Grabando...","status-recording"); continue; }
+          if(r.isFinal&&!paused){ transcript+=" "+raw; outputEl.value=transcript; await analyze(raw); scheduleAnalyzeAll(); }
+          else if(!paused){ temp+=raw+" "; scheduleAnalyzeAll(); }
+        }
+        if(!paused) outputEl.value=(transcript+" "+temp).trim();
+      };
+
+      recognition.onstart=()=>{ recognizing=true; setStatus("Grabando...","status-recording"); btnStart.disabled=true; btnStop.disabled=false; startTime=Date.now(); };
+      recognition.onend =()=>{ recognizing=false; setStatus("Detenido","status-ready"); btnStart.disabled=false; btnStop.disabled=true; scheduleAnalyzeAll(); };
+    }
+
+    function saveExcel(){
+      const data=[{}];
+      for(const k in F){ data[0][k]=(F[k].value||"").trim(); }
+      const wb=XLSX.utils.book_new();
+      const ws=XLSX.utils.json_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb,ws,"Paciente");
+      XLSX.writeFile(wb,"registro_paciente.xlsx");
+    }
+
+    btnStart.onclick=()=>{ if(!recognition) init(); for(const k in bestScore) delete bestScore[k]; recognition.start(); };
+    btnStop.onclick =()=>{ if(recognition) recognition.stop(); paused=false; setStatus("Detenido","status-ready"); saveExcel(); };
+    outputEl.addEventListener("input",()=>{ updateCounters(); scheduleAnalyzeAll(); });
+  </script>
+</body>
+</html>
